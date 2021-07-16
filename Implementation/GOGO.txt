@@ -1,0 +1,204 @@
+#include <iostream>
+#include <string>
+#include <thread>
+#include <vector> 
+#include <mutex>
+#include <random>
+#include <set> 
+#include <ranges>
+#include <algorithm>
+#include <cmath>
+#include <array>
+#include <type_traits>
+#include <numeric>
+
+enum class EDirection : int32_t
+{
+    North = 0,
+    East,
+    South,
+    West,
+};
+
+std::istream& operator>>(std::istream& In, EDirection& InDir)
+{
+    return In >> (int32_t&)InDir;
+};
+
+const bool operator<(const EDirection& Dir, const int32_t Number)
+{
+    return static_cast<int32_t >  (Dir) < Number;
+};
+//
+
+const std::pair<int32_t, int32_t> MoveCoordFromDirection
+        (const EDirection Dir, const int32_t X, const int32_t Y)
+{
+    std::remove_const_t <
+        std::invoke_result_t<decltype(MoveCoordFromDirection), EDirection, int32_t, int32_t>>
+        ResultLocation{X,Y};
+
+    switch (Dir)
+    {
+    case EDirection::North :
+        ResultLocation.second -= 1;
+        break;
+    case EDirection::South:
+        ResultLocation.second += 1;
+        break;
+    case EDirection::East: // 동
+        ResultLocation.first += 1;
+        break;
+    case EDirection::West: // 서
+        ResultLocation.first -= 1;
+        break;
+    default:
+        break;
+    }
+
+    return ResultLocation;
+};
+
+const EDirection operator-(const EDirection& Dir, const int32_t Number)
+{
+    return static_cast<EDirection> ((int32_t&)Dir - Number);
+}; 
+
+const bool IsCanMove(const std::vector<std::vector<int32_t>>& Map,
+                    const std::pair<int32_t,int32_t>& Coord  )
+{
+    return !Map[Coord.second][Coord.first];
+};
+
+const bool IsOcean (const std::vector<std::vector<int32_t>>& Map,
+    const std::pair<int32_t, int32_t>& Coord)
+
+{
+    return  (Map[Coord.second][Coord.first] == 1);
+};
+
+EDirection DirReverse(const EDirection Dir)
+{
+    auto ReverseDir = Dir;
+    if (Dir < 2)
+        return EDirection(static_cast<int32_t> (ReverseDir) + 2);
+    else
+        return EDirection(static_cast<int32_t> (ReverseDir) - 2);
+};
+
+EDirection DirRotation(const EDirection Dir)
+{
+    auto RotDir = Dir - 1;
+
+    if (RotDir < 0)
+    {
+        RotDir = static_cast<EDirection>(3);
+    }
+
+    return RotDir;
+};
+
+void main_impl()
+{
+    // 0 북 , 1 동 , 2 남 , 3 서
+
+    // 1. 현재 위치에서 현재 방향을 기준으로 반시계 방향으로 90도 회전한 방향으로
+    // 차례대로 갈곳을 정한다.
+    /*2. 캐릭터의 바로 왼쪽 방향에 아직 가보지 않은 칸이 존재한다면, 왼쪽 방향으로 회전한 다음
+        왼쪽으로 한칸을 전진한다. 왼쪽 방향에 가보지 않은 칸이 없다면 , 왼쪽방향으로 회전만 수행하고
+        1단계로 돌아간다 .*/
+        // 3. 만약 4방향 모두 이미 가본 칸이거나 바다로 되어 있는 칸인 경우에는 바라보는 방향을 유지한 채로
+         // 한칸 뒤로 가고 1단계로 돌아간다. 단 이 때 뒤족 방향이 바다인 칸이라 뒤로 갈수 없는 경우에는
+         // 움직임을 멈춘다. 
+         // 3<= Height ,Width <= 50
+   
+    uint32_t Height{ 0 }, Width{ 0 }, X{ 0 }, Y{ 0 };
+    EDirection Direction{ EDirection::North };
+    std::cin >> Height >> Width >> X >> Y >> Direction;
+    std::vector<std::vector<int32_t>> Map{ Height,
+                        std::vector<int32_t>(Width,0) };
+
+    for (int32_t i = 0; i < Height; ++i)
+    {
+        for (int32_t j = 0; j < Width; ++j)
+        {
+            std::cin >> Map[i][j];
+        }
+    }
+    
+    // 방향 반시계로 회전하고 그곳이 이동 가능한 곳이였는지 테스트.
+
+    while (true)
+    {
+        if (
+            !IsCanMove(Map, MoveCoordFromDirection(EDirection::North, X, Y)) &&
+            !IsCanMove(Map, MoveCoordFromDirection(EDirection::South, X, Y)) &&
+            !IsCanMove(Map, MoveCoordFromDirection(EDirection::West, X, Y)) &&
+            !IsCanMove(Map, MoveCoordFromDirection(EDirection::East, X, Y))
+            )
+        {
+            const auto ReverseDir = DirReverse(Direction);
+            const auto MoveReverseCoord = MoveCoordFromDirection(ReverseDir, X, Y);
+
+            if (IsOcean(Map, MoveReverseCoord))
+            {
+                break;
+            }
+            else
+            {
+                X = MoveReverseCoord.first;
+                Y = MoveReverseCoord.second;
+                Map[Y][X] = 2;
+                continue;
+            }
+        }
+        else
+        {
+            Direction = DirRotation(Direction);
+            const auto AfterMove = MoveCoordFromDirection(Direction, X, Y);
+            const bool bCanMove = IsCanMove(Map, AfterMove);
+
+            if (bCanMove)
+            {
+                X = AfterMove.first;
+                Y = AfterMove.second;
+                Map[Y][X] = 2;
+            }
+            else
+            {
+                continue;
+            }
+        }
+    };
+
+   //const int32_t MoveCount =  std::accumulate(std::begin(Map), std::end(Map),0,[]
+   //     (const auto& MapRow)
+   //     {
+   //         return std::count_if(std::begin(MapRow), std::end(MapRow), 
+   //             [](const auto Element) 
+   //             {
+   //                 return Element == 2;
+   //             });
+   //     });
+    uint32_t MoveCount{ 0 };
+
+    for (auto& MapRow : Map)
+        for (auto& Element : MapRow)
+        {
+            if (Element == 2)
+                ++MoveCount; 
+        }
+        
+   std::cout << "이동한 칸의 회수 : " << MoveCount;
+
+    //std::array<std::pair < int32_t, int32_t>, 4> MoveFromDirection{};
+    //MoveFromDirection[static_cast<std::size_t> (EDirection::North)] = {0,-1};
+    //MoveFromDirection[static_cast<std::size_t> (EDirection::South)] = {0,+1};
+    //MoveFromDirection[static_cast<std::size_t> (EDirection::East)] = {};
+    //MoveFromDirection[static_cast<std::size_t> (EDirection::West)] = {};
+};
+
+int main()
+{
+    main_impl();
+}
